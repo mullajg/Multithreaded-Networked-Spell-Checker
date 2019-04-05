@@ -1,0 +1,69 @@
+James Mullan
+CIS 3207
+Networked Spell Checker 
+3/31/2019
+
+Instructions to run:
+	-Call server as follows: ./server portNumber textFileName
+		-server takes two arguements, a port number and an OPTIONAL text file for spell checking
+	-Open a new terminal
+	-Call client as follows: ./client ipAddress portNumber
+		-client takes two arguements, an ip address (I always use 127.0.0.1) and the SAME port number you called in server
+	-Begin entering words into the client window
+	-To exit the application type '!exit' into the client window and press enter.
+
+
+	The function of my application is as follows: Multiple clients can connect to singular server and send words to that server.
+The server then checks the sent word against a dictionary text file. If the word is found, the sent word get concatenated with 'OK'
+and printed to a log file on the server. If the word is not found the sent word gets concatenated with 'MISSPELLED' and printed to
+the server log file.
+	Creating this program required me to implement mutual exclusion and condition variables in my code. There are two producer 
+consumer relationships that required maintenence. The connection requests sent by the clients act as a producer into my work buffer,
+and the worker threads created from this connection acted as consumers for the work buffer, accepting and establishing individual 
+connections. The worker threads would then act as a producer for the log buffer (taking an inputted word and spell checking it), 
+and another thread on the server, the "serverLogThread" acts as a consumer for the log buffer (removing items from the buffer and
+writing them to a log file).
+	I approached this problem by building structs for each of the buffers. The structs contained the mutex locks, condition 
+variables and semaphores required to facilitate the producer consumer problem. Then I wrote functions for each buffer that allowed 
+me to initialize, insert items into, and remove items from, the buffer. These functions are where the calls to pthread take place.
+Taking this approach and putting all critical section handling into a user defined structure paved the way for a relatively painless
+coding process.
+
+main():
+	This function is mostly used for initialization. If the user passes in a file, that file gets set as our dictionary file, if
+not, the standard dictionary file is used. The main function then calls createThreadPool() and mainThread().
+
+createThreadPool():
+	The purpose of this function is self explanatory. The worker threads are set up and set to run function workerThread, and 
+the server log thread is set up and set to run function serverLogThread.
+
+mainThread():
+	The purpose of this function is to open the server up for connection and continually wait for incoming connection requests.
+When a request is sent, that connection gets put into the work buffer.
+
+workerThread():
+	This function sits in a continual loop waiting for a connection to be placed into the work buffer. Once an item is in the
+work buffer the workerThread then removes that item, and sends it to the workHandler().
+
+serverLogThread():
+	This function sits in a continual loop waiting for a string to be placed into the log buffer. The server log thread then 
+removes a string once it is available, locks the writeMutex, writes the string to the log file, then unlocks the writeMutex.
+
+workHandler():
+	This function establishes a connection with the client and waits for input from the client. Once a word is recieved, this 
+function checks the word against the dictionary file, locks the catMutex and calls concat() to concatenate 'OK' or 'MISSPELLED' 
+respectively. This function then places the concatenated string into the log buffer, and unlocks catMutex.
+
+concat():
+	This function accepts a word, a 'isCorrect' flag and a client number. The function then concatenates the word with either
+'OK' or 'MISSPELLED' based on the flag. The client number is also concatenated onto the string. The resulting string is returned.
+
+
+P.S.
+	My original solution to this problem exclusively used semaphores, where a binary semaphore acted as a lock and a counting
+semaphore acted as a condition variable. It was brought to my attention that the purpose of this excercise is to establish an 
+understanding of pthread condition variables and pthread mutex locks. I then changed my work buffer structure so that it did use these
+pthread locks and condition variables. I was not able to do the same for my log buffer due to time constraints. Despite not having
+pthread condition variable and mutex locks in my log buffer, the progam functions as requested. The semaphore solution that I had
+was cleaner and easier to read than what I am currently handing in. I understand that the purpose of this excercise is to develop an understanding for a specific piece of the C language, but if this were a professional environment, I believe my solution that 
+implemented semaphores would have been the better product. 
